@@ -98,6 +98,21 @@
       box-shadow: 0 2px 10px rgba(0,0,0,.35); z-index: 10;
       backdrop-filter: saturate(140%) blur(4px);
     }
+
+     /* 音乐按钮 */
+      .music-btn{
+      position: fixed;
+      right: 8px;
+      top: 8px;
+      z-index: 10;
+      background:#131313;
+      border:1px solid #333;
+      color:#bfe0ff;
+      border-radius:8px;
+      padding:.4rem .7rem;
+      cursor:pointer;
+    }
+
     .back-btn[disabled]{ opacity: .35; cursor: not-allowed; }
     .back-btn:focus-visible { outline: 2px solid #7fb7ff; outline-offset: 2px; }
   </style>
@@ -105,6 +120,8 @@
 <body>
   <!-- 键盘无障碍：按钮可回退上一段 -->
   <button id="backBtn" class="back-btn" aria-label="返回上一步" disabled type="button">← 返回</button>
+  <!-- 音乐播放 -->
+  <button id="musicBtn" class="music-btn" type="button">🎵 音乐</button>
 
   <!-- 固定视口层，所有可见内容都放这里 -->
   <div id="viewport" class="viewport">
@@ -113,6 +130,8 @@
       <div id="app" class="scene" aria-live="polite" role="group"></div>
     </div>
   </div>
+
+  <audio id="bgm" src="归墟.mp3" preload="auto" loop></audio>
 
   <script>
     /* =========================================================
@@ -744,6 +763,46 @@
         updateVHVar(); fitStage();
       }
     });
+
+    /* =========================================================
+   背景音乐：自动播放 + 兜底交互播放
+   ========================================================= */
+const bgm = document.getElementById('bgm');
+const musicBtn = document.getElementById('musicBtn');
+
+// 尝试自动播放
+function tryAutoPlay() {
+  if (!bgm) return;
+  bgm.volume = 0.6;
+  const playPromise = bgm.play();
+  if (playPromise !== undefined) {
+    playPromise.catch(() => {
+      // 自动播放失败，等待用户第一次交互
+    });
+  }
+}
+
+// 页面首次加载尝试
+tryAutoPlay();
+
+// 任意一次用户点击后，确保播放
+document.addEventListener('click', function oncePlay() {
+  tryAutoPlay();
+  document.removeEventListener('click', oncePlay);
+});
+
+// 音乐按钮：暂停 / 播放切换
+musicBtn.addEventListener('click', () => {
+  if (bgm.paused) {
+    bgm.play();
+    musicBtn.textContent = '⏸ 暂停';
+  } else {
+    bgm.pause();
+    musicBtn.textContent = '🎵 音乐';
+  }
+});
+
+
   </script>
 </body>
 </html>
