@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>第一章（极简动画版 · 零滚动版）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#000000">
+  <style>
+    /* =========================================================
+       基础重置与“零滚动”策略
+       - 通过根级 overflow: hidden 禁止文档滚动
+       - 通过固定视口容器承担安全区与内边距，避免推高文档
+       - 通过 JS 写入 --vh = innerHeight/100，稳定移动端视口
+       ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      overflow: hidden;                  /* 禁止滚动（根级） */
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: auto;
+    }
+
+    :root{
+      --vh: 1vh;                         /* JS 会更新为 innerHeight，避免地址栏影响 */
+      --pad: clamp(16px, 4vw, 32px);
+      --stage-max-w: 44rem;
+    }
+    /* 优先使用更精确的 dvh/svh（浏览器支持则覆盖） */
+    @supports (height: 100dvh) { :root { --vh: 1dvh; } }
+    @supports (height: 100svh) { :root { --vh: 1svh; } }
+
+    /* =========================================================
+       固定视口层（关键）
+       - 所有可见内容都放在 .viewport 内，避免文档高度变化
+       ========================================================= */
+    .viewport{
+      position: fixed; left: 0; top: 0; width: 100vw; height: calc(var(--vh) * 100);
+      padding:
+        calc(max(var(--pad), env(safe-area-inset-top)))
+        calc(max(var(--pad), env(safe-area-inset-right)))
+        calc(max(var(--pad), env(safe-area-inset-bottom)))
+        calc(max(var(--pad), env(safe-area-inset-left)));
+      display: grid; place-items: center;
+      background: #000; color: #fff;
+      overflow: hidden; overscroll-behavior: none;
+    }
+
+    /* 基础排版（适度响应式字号） */
+    html { font-size: clamp(16px, 1.6vw + 0.5rem, 20px); }
+    body { font-family: Georgia, serif; }
+
+    a { color: #7fb7ff; text-decoration: none; display: block; margin: .5em 0; font-weight: bold; }
+    a:hover { color: #bfe0ff; }
+    a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+    /* 舞台：等比缩放以适配高度（用 JS 动态计算 scale） */
+    .stage{ max-width: var(--stage-max-w); width: min(100%, var(--stage-max-w)); transform-origin: top center; }
+    .scene{ line-height: 1.65; }
+    .muted{ opacity: .85; }
+
+    /* 动画（为“减少动态”用户降级到极短出现） */
+    @keyframes appear { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes fadeOut { from { opacity: 1 } to { opacity: 0 } }
+    @keyframes slideUpIn { from { transform: translateY(1.2em); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+    @keyframes slideLeftIn { from { transform: translateX(1.2em); opacity: 0 } to { transform: translateX(0); opacity: 1 } }
+    @keyframes slideRightOut { from { transform: translateX(0); opacity: 1 } to { transform: translateX(-1.2em); opacity: 0 } }
+    @keyframes flicker {
+      0%,18%,22%,25%,53%,57%,100%{opacity:1}
+      20%,24%,55%{opacity:.4}
+      23%{opacity:.7}
+    }
+    @keyframes buoy { 25%{ top:.25em } 75%{ top:-.25em } 0%,100%{ top:0 } }
+    @keyframes sway { 25%{ left:.25em } 75%{ left:-.25em } 0%,100%{ left:0 } }
+
+    .t-enter{ animation: appear .45s ease both; }
+    .t-enter-up{ animation: slideUpIn .5s ease both; }
+    .t-enter-left{ animation: slideLeftIn .5s ease both; }
+    .t-leave{ animation: fadeOut .3s ease both; }
+    .t-leave-left{ animation: slideRightOut .35s ease both; }
+
+    @media (prefers-reduced-motion: reduce){
+      .t-enter, .t-enter-up, .t-enter-left, .t-leave, .t-leave-left { animation: appear .01s linear both; }
+    }
+
+    /* 提灯效果（如需在文案中包裹 .lantern） */
+    .lantern{
+      display: inline-block; position: relative;
+      animation: flicker 2.2s infinite, buoy 3.2s ease-in-out infinite, sway 4.5s ease-in-out infinite;
+    }
+
+    /* 返回按钮（固定于安全区内） */
+    .back-btn{
+      position: fixed; left: calc(env(safe-area-inset-left) + 8px); top: calc(env(safe-area-inset-top) + 8px);
+      background: #131313; border: 1px solid #333; border-radius: .6rem;
+      color: #bfe0ff; padding: .45rem .7rem; font-weight: 700; cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,.35); z-index: 10;
+      backdrop-filter: saturate(140%) blur(4px);
+    }
+    .back-btn[disabled]{ opacity: .35; cursor: not-allowed; }
+    .back-btn:focus-visible { outline: 2px solid #7fb7ff; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <!-- 键盘无障碍：按钮可回退上一段 -->
+  <button id="backBtn" class="back-btn" aria-label="返回上一步" disabled type="button">← 返回</button>
+
+  <!-- 固定视口层，所有可见内容都放这里 -->
+  <div id="viewport" class="viewport">
+    <div id="stage" class="stage">
+      <!-- aria-live 让读屏器在片段切换时朗读新内容；role=group 语义分组 -->
+      <div id="app" class="scene" aria-live="polite" role="group"></div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================
+       数据：段落与选项（信任自有内容，可含 HTML）
+       说明：
+       - 文案可能包含 HTML（如 <em>/<b>），渲染时会直接注入。
+       - 如需防止外部注入，请确保 PASSAGES 由可信源构建。
+       ========================================================= */
+    const PASSAGES = {
+      /* ===== 引子与三选（学校 / 单位 / 家） ===== */
+      intro0: {
+        lines: [
+          { text: "如果你突然来到一个熟悉又陌生的地方。" },
+          { text: "你似曾相识的楼就这样，四周没有一棵树，没有一朵花，甚至没有一根草。没有人，也没有狗；没有苍蝇和蟑螂。空气里没有生命的气息。" },
+          { text: "写着未知字符牌匾的，你最熟悉的——" }
+        ],
+        options: [
+          { text: "学校", next: "route_school" },
+          { text: "单位", next: "route_work" },
+          { text: "家",   next: "route_home" }
+        ],
+        enter: "t-enter-up"
+      },
+
+      /* ===== 学校线：安静到失真 ===== */
+      route_school: {
+        lines: [
+          { text: "校园里格外安静——没有电子设备的嗡鸣，没有风声，没有老师同学的喧哗。只有你的脚步、你的心跳、你的呼吸。" },
+          { text: "走廊灯影迟滞，好像光也被归档入某种失效的时间库。黑板上留着粉尘，可没有任何一粒尘埃在飘。" }
+        ],
+        options: [{ text: "……", next: "converge_void" }]
+      },
+
+      /* ===== 单位线：办公区的尸蜡质感 ===== */
+      route_work: {
+        lines: [
+          { text: "一缕骇人的违和感攫住了你。" },
+          { text: "没有人声。" },
+          { text: "没有犬吠。" },
+          { text: "没有雀鸣。" },
+          { text: "甚至连风声、树叶的颤动都消失得一干二净，呼吸似乎也被迟滞了。整个空间死一般的寂静，仿佛所有活物都被剥夺殆尽。" }
+        ],
+        options: [{ text: "……", next: "converge_void" }]
+      },
+
+      /* ===== 家线：熟悉房间里的陌生寒意 ===== */
+      route_home: {
+        lines: [
+          { text: "一缕骇人的违和感攫住了你。" },
+          { text: "没有人声。" },
+          { text: "没有犬吠。" },
+          { text: "没有雀鸣。" },
+          { text: "甚至连风声、树叶的颤动都消失得一干二净，呼吸似乎也被迟滞了。整个空间死一般的寂静，仿佛所有活物都被剥夺殆尽。" }
+        ],
+        options: [{ text: "……", next: "converge_void" }]
+      },
+
+      /* ===== 三线归一：空壳世界 ===== */
+      converge_void: {
+        lines: [
+          { text: "你站在最熟悉的屋子前，脚下是熟悉的路，眼前是熟悉的门廊，却空无一人。" }
+        ],
+        options: [
+          { text: "留在原地", next: "stay_here" },
+          { text: "去探索",   next: "explore_choice" }
+        ]
+      },
+
+      /* ===== 原地分支：消息/睡觉 ===== */
+      stay_here: {
+        lines: [
+          { text: "你决定原地等待，像把自己钉在这块静止的影子里。" }
+        ],
+        options: [
+          { text: "拿出手机发消息", next: "try_phone" },
+          { text: "就地躺下睡觉",   next: "sleep_here" }
+        ]
+      },
+
+      try_phone: {
+        lines: [
+          { text: "你的确翻到了手机。" },
+          { text: "可惜，手机和一切电子设备都失灵了，像是一块冰冷的白砖。" },
+          { text: "信号栏空空如也，时间字段像被抹去的伤口。" }
+        ],
+        options: [
+          { text: "别无选择，只能去探索", next: "explore_choice" }
+        ]
+      },
+
+      sleep_here: {
+        lines: [
+          { text: "你倚着门廊缓慢坐下。寂静像是枯井，你把自己往里投。" }
+        ],
+        options: [
+          { text: "闭眼强迫入睡（睡着，结局 a）", next: "ending_a" },
+          { text: "翻来覆去，怎么都睡不着",         next: "explore_choice" }
+        ]
+      },
+
+      /* ===== 探索分支：进屋 / 去外面 ===== */
+      explore_choice: {
+        lines: [
+          { text: "你深吸一口气，朝静止的世界迈出第一步。" }
+        ],
+        options: [
+          { text: "进入屋内",   next: "enter_house" },
+          { text: "去外面看看", next: "go_outside" }
+        ]
+      },
+
+      /* ===== 进屋：空壳房间 ===== */
+      enter_house: {
+        lines: [
+          { text: "依旧是记忆中的格局，可周围的世界却像一具空壳，静得反常，像是时间与生命全被掐断，留下荒芜的躯壳。" },
+          { text: "墙上悬挂的相框反着冷白的光，你看见自己的影，只是影子没有跟你同步——它慢半拍。" }
+        ],
+        options: [
+          { text: "搜寻异常物品", next: "inspect_anomaly" },
+          { text: "离开屋子",     next: "go_outside" }
+        ]
+      },
+
+      /* ===== 异常物品 → 协议激活 ===== */
+      inspect_anomaly: {
+        lines: [
+          { text: "你在抽屉的最底层摸到一册薄薄的册子。封皮没有字，指尖一触，它像活了一样呼吸。" },
+          { html: "【协议激活：<b>卡牌游戏-核心框架</b>】" },
+          { html: "【卡池载入：副本「以史为鉴」】" },
+          { html: "【副本时限：24:00:00（倒计时启动）】" }
+        ],
+        options: [
+          { text: "接受",   next: "accept_protocol" },
+          { text: "不接受", next: "refuse_d1" }
+        ]
+      },
+
+      /* ===== 接受 → 空城史诗段落 → 任意故事（结局 b） ===== */
+      accept_protocol: {
+        lines: [
+          { text: "册页自行翻开，墨痕缓缓浸润出一个早已坍缩的王朝。" },
+          { text: "或云，古有亡国，其时百姓忽绝，宫阙独存，唯君一人。城郭空而市井灭，万室无人，草木皆寂。" },
+          { text: "宫中钟鼓尚鸣，笙笛犹响，舞影宛然。然视之，则鼓无手击，笛无口吹，台上更无舞者。" },
+          { text: "君始惧，既久而安。乃自为史：" },
+          { text: "执笔曰「百姓安居，四野升平」；" },
+          { text: "举樽曰「群臣同宴，歌舞不绝」；" },
+          { text: "登台曰「万民齐呼，声震山河」。" },
+          { text: "于是，空城之中，盛世之篇成矣。" },
+          { text: "后之史官得其书，览而骇曰：其言非妄。城垣间若有呼啸，殿陛上若见冠裳，虚实莫分，真伪难辩。" },
+          { html: "【副本提示：<em>讲一个故事</em>，使「君」开心。】" }
+        ],
+        options: [
+          { text: "讲任何一个故事（结局 b）", next: "ending_b" }
+        ]
+      },
+
+      /* ===== 不接受 → 质问对话 → 强制绑定 → 任意故事（结局 c） ===== */
+      refuse_d1: {
+        lines: [
+          { html: "【检测到拒绝输入。】" },
+          { html: "【请确认：是否进入副本「以史为鉴」。】" }
+        ],
+        options: [
+          { text: "你是谁？主神、系统，还是某个躲在帷幕后操纵的叙事者？", next: "refuse_d2" },
+          { text: "……算了，接受。", next: "accept_protocol" }
+        ]
+      },
+
+      refuse_d2: {
+        lines: [
+          { html: "【无关字段。】" },
+          { html: "【当前仅处理：进入/拒绝。】" }
+        ],
+        options: [
+          { text: "我知道你听得见。回答我，你想要什么？", next: "refuse_d3" },
+          { text: "……算了，接受。", next: "accept_protocol" }
+        ]
+      },
+
+      refuse_d3: {
+        lines: [
+          { html: "【目标：讲一段<b>有趣的历史</b>，使「君」愉悦。】" },
+          { html: "【完成后将发放：<b>存续</b>。】" }
+        ],
+        options: [
+          { text: "存续？用‘活命’做筹码与我交易？", next: "refuse_d4" },
+          { text: "……算了，接受。", next: "accept_protocol" }
+        ]
+      },
+
+      refuse_d4: {
+        lines: [
+          { html: "【若不执行，二十四小时内你的生物体征将彻底熄灭；若执行，存活概率提升至 42%。】" }
+        ],
+        options: [
+          { text: "拯救？你所谓的盛世不过是空壳。因果谁裁？", next: "refuse_d5" },
+          { text: "……算了，接受。", next: "accept_protocol" }
+        ]
+      },
+
+      refuse_d5: {
+        lines: [
+          { html: "【因由你述，果由我裁。混乱不可容留。】" },
+          { html: "墙面与空气的纹理轻微扭曲，像被水晕开的墨。" }
+        ],
+        options: [
+          { text: "你缺什么，需要从我这儿榨取？", next: "refuse_bind" },
+          { text: "……算了，接受。", next: "accept_protocol" }
+        ]
+      },
+
+      /* 触发强制绑定 → 只能讲故事（结局 c） */
+      refuse_bind: {
+        lines: [
+          { html: "【拒绝无效。身份已绑定。】" },
+          { html: "【副本已开启，剩余时间：23:47:11】" },
+          { html: "帷幕后冷白的殿阶一层层展开。" }
+        ],
+        options: [
+          { text: "……讲一个故事吧（结局 c）", next: "ending_c" }
+        ]
+      },
+
+      /* ===== 去外面：破坏 → 强制绑定 → 三选（d/e/f） ===== */
+      go_outside: {
+        lines: [
+          { text: "街道像一条被掏空的动脉。你忽然生出一种近乎残忍的冲动：凡是还能动的，都该被迫给出回应。" }
+        ],
+        options: [
+          { text: "大肆破坏（砸灯、掀井盖、敲碎窗）", next: "rampage_bind" },
+          { text: "辱骂那看不见的“主神”",            next: "insult_god" }
+        ]
+      },
+
+      rampage_bind: {
+        lines: [
+          { text: "你扔出石块，玻璃炸开成花；你敲击路灯，金属嗡鸣像从水底传来。" },
+          { text: "当你撬起一块青石砖时，地下露出一层冷白的薄膜，像皮肤下的眼睛。它眨了一下。" },
+          { html: "【检测到高强度干扰。副本绑定触发。】" },
+          { html: "【卡池载入：副本「以史为鉴」】" }
+        ],
+        options: [
+          { text: "……", next: "accept_fuben" }
+        ]
+      },
+
+      accept_fuben: {
+        lines: [
+          { text: "或云，古有亡国，其时百姓忽绝，宫阙独存，唯君一人。城郭空而市井灭，万室无人，草木皆寂。" },
+          { text: "宫中钟鼓尚鸣，笙笛犹响，舞影宛然。然视之，则鼓无手击，笛无口吹，台上更无舞者。" },
+          { text: "君始惧，既久而安。乃自为史：" },
+          { text: "执笔曰「百姓安居，四野升平」；" },
+          { text: "举樽曰「群臣同宴，歌舞不绝」；" },
+          { text: "登台曰「万民齐呼，声震山河」。" },
+          { text: "于是，空城之中，盛世之篇成矣。" },
+          { text: "后之史官得其书，览而骇曰：其言非妄。城垣间若有呼啸，殿陛上若见冠裳，虚实莫分，真伪难辩。" }
+        ],
+        options: [
+          { text: "……", next: "accept_qieye" }
+        ]
+      },
+
+      accept_qieye: {
+        lines: [
+          { html: "【副本提示：<em>讲一个故事</em>，使「君」开心。】" }
+        ],
+        options: [
+          { text: "认真讲述自己的故事（结局 d）",     next: "ending_d" },
+          { text: "讲一个“有趣”的童话/艺术性故事（结局 e）", next: "ending_e" },
+          { text: "不讲故事，尝试攻击“君”（结局 f）",     next: "ending_f" }
+        ]
+      },
+
+      /* ===== 侮辱主神 → 仍被绑定 → 先走副本故事 → 再选 g/h ===== */
+      insult_god: {
+        lines: [
+          { text: "你仰头向空无的穹顶痛骂，把所有粗鄙的词都翻出来。" },
+          { html: "【语言收录完毕。情绪参数：高。】" },
+          { html: "【副本绑定完成。】" },
+          { html: "【副本提示：讲述以重建因果。】" }
+        ],
+        options: [
+          { text: "……", next: "insult_story_intro" }
+        ]
+      },
+
+      /* —— 展示副本故事—— */
+      insult_story_intro: {
+        lines: [
+          { text: "或云，古有亡国，其时百姓忽绝，宫阙独存，唯君一人。城郭空而市井灭，万室无人，草木皆寂。" },
+          { text: "宫中钟鼓尚鸣，笙笛犹响，舞影宛然。然视之，则鼓无手击，笛无口吹，台上更无舞者。" },
+          { text: "君始惧，既久而安。乃自为史：" },
+          { text: "执笔曰「百姓安居，四野升平」；" },
+          { text: "举樽曰「群臣同宴，歌舞不绝」；" },
+          { text: "登台曰「万民齐呼，声震山河」。" },
+          { text: "于是，空城之中，盛世之篇成矣。" },
+          { text: "后之史官得其书，览而骇曰：其言非妄。城垣间若有呼啸，殿陛上若见冠裳，虚实莫分，真伪难辩。" },
+          { html: "【副本提示：<em>讲一个故事</em>，使「君」开心。】" }
+        ],
+        options: [
+          { text: "你决定以另一种方式对抗：让荒诞吞没叙事本身。", next: "insult_story_choice" }
+        ],
+      },
+
+      /* —— 在故事展示后再给“羞耻/荒唐”的选择 —— */
+      insult_story_choice: {
+        lines: [
+          { text: "帷幕后的人影静听。你的语言像往深井里投石，回声来得很慢。" },
+          { text: "你不打算安抚它，而是让荒诞去撕扯叙事的缝线。" }
+        ],
+        options: [
+          { text: "做一件羞耻且无意义的事（结局 g）", next: "ending_g" },
+          { text: "做一件荒唐但无伤的事（结局 h）",   next: "ending_h" }
+        ]
+      },
+
+      /* ======= 完整的 8 个结局 + 获得职业 ======= */
+      ending_a: {
+        lines: [
+          { text: "【结局 A｜沉睡回声】你靠在冰冷的门廊慢慢睡去。梦中，有人在你耳边轻声复述你说过的每一句话，像是海水一层层卷走沙滩上的脚印。" },
+          { text: "当你再次睁眼，胸腔空得像被人搬走过，地面上却留下一圈浅白的盐痕。时间仍在流逝，但世界好像默许了你再活一次。" }
+        ],
+        options: [
+          { text: "获得职业：回声抄写员", next: "job_scribe" }
+        ]
+      },
+
+      ending_b: {
+        lines: [
+          { text: "【结局 B｜空城奏折】你缓缓讲完那个故事。帷幕后的人影像在翻阅旧卷宗，最终轻轻点头。钟鼓声不是赞美，也不是同情，而像是盖下的一枚冷静印章。" },
+          { text: "世界的亮度微微上升，你获得了一线继续书写的许可。" }
+        ],
+        options: [
+          { text: "获得职业：御词讲官", next: "job_orator" }
+        ]
+      },
+
+      ending_c: {
+        lines: [
+          { text: "【结局 C｜被迫的独白】无论你怎样反抗，绑定仍然发生。话语像从齿缝中被抽出的一缕缕丝线，越来越长，最终织成幕布隔开了你和自己。" },
+          { text: "你站在幕布之前，幕布另一边的人影与自己重叠，却再无法确认那是不是你。" }
+        ],
+        options: [
+          { text: "获得职业：契约行走者", next: "job_binder" }
+        ]
+      },
+
+      ending_d: {
+        lines: [
+          { text: "【结局 D｜镜面对读】你选择认真地诉说自己的经历。帷后的影像像是被雾气蒙上一层白霜，缓缓起伏，仿佛在轻轻呼吸。" },
+          { text: "雾散之后，镜面里出现了一个温暖的光点。那是属于你的时间，被你争取了下来。" }
+        ],
+        options: [
+          { text: "获得职业：镜面守望者", next: "job_mirror" }
+        ]
+      },
+
+      ending_e: {
+        lines: [
+          { text: "【结局 E｜玉上的笑纹】你讲了一个极美的童话。君笑了，那笑意像被雕刻在玉石上的细纹，永不消失，也永不再生长。" },
+          { text: "世界变得更加光滑，仿佛再没有棱角，但你也发现自己更难抓住它了。" }
+        ],
+        options: [
+          { text: "获得职业：绣词造梦师", next: "job_fabulist" }
+        ]
+      },
+
+      ending_f: {
+        lines: [
+          { text: "【结局 F｜言先于拳】你试图挥出拳头，但语言比拳头更快。它替你打出第一击，也替你缴械。" },
+          { text: "拳头停在半空，像一枚孤零零的标点符号，而你的句子继续替你完成了反击与妥协。" }
+        ],
+        options: [
+          { text: "获得职业：辩斗家", next: "job_brawler" }
+        ]
+      },
+
+      ending_g: {
+        lines: [
+          { text: "【结局 G｜羞耻存档】你把羞耻当作武器去刺破规则。规则却只是安静地记录：它把你逐字抄下，放进冷柜，贴上编号和日期。" },
+          { text: "你透过冰冷的玻璃看见自己，冻得通红，却依旧清醒地呼吸。" }
+        ],
+        options: [
+          { text: "获得职业：冷柜档案师", next: "job_archivist" }
+        ]
+      },
+
+      ending_h: {
+        lines: [
+          { text: "【结局 H｜荒唐词条】你用彻底的荒唐回应荒唐本身。殿中的影子静静看着，像是学会了一个新词，把它写进字典，并在注释处写下你的名字。" },
+          { text: "词条下方还有一行小字：『可复用』。" }
+        ],
+        options: [
+          { text: "获得职业：荒诞注释者", next: "job_glossator" }
+        ]
+      }
+
+      /* === 提示：你在结局后的“职业”段落（job_*）可继续补充 === */
+    };
+
+    /* =========================================================
+       状态与引用
+       ========================================================= */
+    const app = document.getElementById('app');
+    const stage = document.getElementById('stage');
+    const viewport = document.getElementById('viewport');
+    const backBtn = document.getElementById('backBtn');
+
+    const STATE = {
+      currentId: null,
+      busy: false,
+      history: []
+    };
+
+    // 兼容旧渲染逻辑：show() 里仍使用 P[id]
+    const P = PASSAGES;
+
+    /* =========================================================
+       工具：安全地写入 --vh 以稳定移动端视口高度
+       ========================================================= */
+    function updateVHVar(){
+      // 使用 window.innerHeight 更贴近视觉视口
+      const vh = window.innerHeight / 100;
+      document.documentElement.style.setProperty('--vh', vh + 'px');
+    }
+
+    /* =========================================================
+       渲染主流程
+       - show(id): 切换段落（带离场/入场动画）
+       - mount(passage): 生成节点并挂载
+       - renderOptions(opts): 选项渲染为可点击链接
+       ========================================================= */
+    function show(id, leaveAnim = "t-leave-left") {
+      if (STATE.busy) return;
+      STATE.busy = true;
+
+      try {
+        const next = P[id];
+        if (!next) {
+          console.warn("未知段落：", id);
+          return;
+        }
+
+        const enterClass = next.enter || "t-enter";
+
+        if (app.firstChild) {
+          const old = app.firstChild;
+          old.classList.add(leaveAnim);
+          old.addEventListener("animationend", () => {
+            // 移除旧节点后再挂载新节点
+            if (old.parentNode === app) app.removeChild(old);
+            mount(next, enterClass);
+          }, { once: true });
+        } else {
+          mount(next, enterClass);
+        }
+
+        STATE.currentId = id;
+        updateBackBtn();
+      } finally {
+        // 注意：最终的 busy=false 放在 mount 的动画结束回调中
+        // 这里不能立即复位，否则会打断动画期间的节流
+      }
+    }
+
+    function mount(passage, enterClass) {
+      const box = document.createElement("div");
+      box.className = enterClass + " muted";
+
+      // 兼容三种写法：lines（新）、html、text（旧）
+      let content = "";
+      if (Array.isArray(passage.lines)) {
+        content = passage.lines.map(l => {
+          if (!l) return "<p></p>";
+          if (l.html != null) return `<p>${l.html}</p>`;
+          return `<p>${l.text ? l.text : ""}</p>`;
+        }).join("");
+      } else if (passage.html != null) {
+        content = passage.html;
+      } else if (passage.text != null) {
+        content = `<p>${passage.text}</p>`;
+      }
+
+      box.innerHTML = content + renderOptions(passage.options);
+
+      // 事件委托：点击选项
+      box.addEventListener("click", (e) => {
+        const a = e.target.closest("a[data-next]");
+        if (!a) return;
+        e.preventDefault();
+
+        const nextId = a.dataset.next;
+        if (STATE.currentId) STATE.history.push(STATE.currentId);
+        show(nextId);
+      });
+
+      // 键盘可达性：在当前 card 内用上下方向键/回车进行导航（可选增强）
+      box.addEventListener("keydown", (e) => {
+        const links = box.querySelectorAll('a[data-next]');
+        if (!links.length) return;
+
+        const currentIndex = Array.prototype.indexOf.call(links, document.activeElement);
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          const next = links[Math.min(currentIndex + 1, links.length - 1)] || links[0];
+          next.focus();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          const prev = links[Math.max(currentIndex - 1, 0)] || links[links.length - 1];
+          prev.focus();
+        } else if (e.key === "Enter" && document.activeElement?.hasAttribute('data-next')) {
+          e.preventDefault();
+          document.activeElement.click();
+        }
+      });
+
+      app.appendChild(box);
+
+      // 入场动画结束后：
+      box.addEventListener("animationend", () => {
+        box.classList.remove("muted");
+        STATE.busy = false;
+        fitStage();            // 内容变化后计算一次缩放
+        focusFirstOption(box); // 辅助无障碍：将焦点移到第一项/容器
+      }, { once: true });
+    }
+
+    function renderOptions(opts = []) {
+      if (!opts.length) return "";
+      return `<div>${opts.map(o => `<a href="#" data-next="${o.next}">${o.text}</a>`).join("")}</div>`;
+    }
+
+    function focusFirstOption(container){
+      const firstLink = container.querySelector('a[data-next]');
+      if (firstLink) {
+        // 延后一帧，确保渲染完成后再聚焦
+        requestAnimationFrame(() => firstLink.focus());
+      } else {
+        // 若没有选项，聚焦到容器以便读屏器宣读
+        container.setAttribute('tabindex', '-1');
+        requestAnimationFrame(() => container.focus());
+      }
+    }
+
+    /* =========================================================
+       导航：返回上一段
+       - Backspace/Alt+Left 支持（避免在输入框内误触）
+       ========================================================= */
+    function goBack(){
+      if (STATE.busy || STATE.history.length === 0) return;
+      const prevId = STATE.history.pop();
+      show(prevId, "t-leave");
+    }
+
+    backBtn.addEventListener('click', goBack);
+
+    document.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
+      const isTyping = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
+
+      if (isTyping) return; // 输入时不拦截
+
+      // Backspace 返回
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        goBack();
+      }
+
+      // Alt + 左方向 返回（接近浏览器习惯，但只影响站内）
+      if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goBack();
+      }
+    }, { passive: false });
+
+    function updateBackBtn(){
+      backBtn.disabled = STATE.history.length === 0;
+      backBtn.setAttribute('aria-disabled', String(backBtn.disabled));
+    }
+
+    /* =========================================================
+       视口与缩放（零滚动关键）
+       - 根据 .viewport 内容区高度，等比缩放 .stage，使其完全容纳
+       - scale 的下限上限防抖，避免极端缩小/放大造成视觉问题
+       ========================================================= */
+    let rafId = 0;
+    function fitStage(){
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const styles = getComputedStyle(viewport);
+        const pt = parseFloat(styles.paddingTop) || 0;
+        const pb = parseFloat(styles.paddingBottom) || 0;
+        const availableH = viewport.clientHeight - pt - pb;
+
+        // 先复位 scale，测量原始高度
+        stage.style.transform = 'scale(1)';
+        const contentH = stage.getBoundingClientRect().height;
+
+        // 计算比例，限制区间 [0.5, 1]，并留 2% 余量
+        const scale = Math.min(1, Math.max(0.5, (availableH / contentH) * 0.98));
+        stage.style.transform = `scale(${scale})`;
+      });
+    }
+
+    /* =========================================================
+       监听尺寸与方向变化（节流到一帧）
+       - 使用 ResizeObserver 监听根元素尺寸变更
+       - 叠加 window resize / orientationchange 作为冗余
+       ========================================================= */
+    const ro = ('ResizeObserver' in window)
+      ? new ResizeObserver(() => { updateVHVar(); fitStage(); })
+      : null;
+
+    if (ro) ro.observe(document.documentElement);
+
+    window.addEventListener('orientationchange', () => { updateVHVar(); fitStage(); }, { passive: true });
+    window.addEventListener('resize', () => { updateVHVar(); fitStage(); }, { passive: true });
+
+    /* =========================================================
+       启动：写入 --vh、进入起始段落、首次适配缩放
+       ========================================================= */
+    updateVHVar();
+    show("intro0");   // 从 intro0 开始
+    fitStage();
+
+    // 补充：页面可见性变更时微调一次（移动端从后台回前台可能有地址栏变化）
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        updateVHVar(); fitStage();
+      }
+    });
+  </script>
+</body>
+</html>
