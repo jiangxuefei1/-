@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>第一章（极简动画版 · 零滚动版）</title>
+  <title>卡牌游戏 cn哑鸦</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#000000">
@@ -84,15 +84,196 @@
       .t-enter, .t-enter-up, .t-enter-left, .t-leave, .t-leave-left { animation: appear .01s linear both; }
     }
 
+/* =========================
+   死亡序章 · 样式
+   ========================= */
+
+.death-screen{
+  text-align: center;
+  color: #fff;
+}
+
+.death-title{
+  font-size: clamp(3rem, 10vw, 6rem);
+  color: darkred;
+  font-family: "UnifrakturCook", "Blackletter", "Times New Roman", serif;
+  letter-spacing: .1em;
+  animation: appear 1.2s ease forwards;
+}
+
+.death-sub{
+  margin-top: 1.2em;
+  font-size: 1.2rem;
+  opacity: 0;
+  animation: appear 1.2s ease forwards;
+  animation-delay: 1.6s;
+}
+
+.blood{
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(120,0,0,.8), transparent 60%);
+  animation: bloodBurst 2.5s ease forwards;
+  animation-delay: 2.6s;
+  opacity: 0;
+}
+
+@keyframes bloodBurst{
+  0%{
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  30%{
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100%{
+    transform: scale(1);
+    opacity: .35;
+  }
+}
+
+.death-enter{
+  margin-top: 4em;
+  display: inline-block;
+  color: #4aa3ff;
+  font-weight: bold;
+  opacity: 0;
+  animation: appear .8s ease forwards;
+  animation-delay: 4.6s;
+}
+
+.system-glitch {
+  position: relative;
+  color: #ffffff;
+  animation: power-drop 3.5s infinite steps(1, end);
+}
+
+/* 残影层 */
+.system-glitch::before,
+.system-glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* 左偏冷残影 */
+.system-glitch::before {
+  color: #9fc7ff;
+  transform: translateX(-2px);
+  animation: circuit-jump 2.8s infinite steps(1, end);
+}
+
+/* 右偏亮残影 */
+.system-glitch::after {
+  color: #e6f0ff;
+  transform: translateX(2px);
+  animation: circuit-jump 3.1s infinite steps(1, end);
+}
+
+/* === 主断电节奏 === */
+@keyframes power-drop {
+  0%   { opacity: 1; }
+  18%  { opacity: 1; }
+  19%  { opacity: 0; } /* 瞬断 */
+  22%  { opacity: 0; }
+  23%  { opacity: 1; }
+
+  41%  { opacity: 1; }
+  42%  { opacity: 0; }
+  48%  { opacity: 0; }
+  49%  { opacity: 1; }
+
+  70%  { opacity: 1; }
+  71%  { opacity: .4; } /* 电压不足 */
+  74%  { opacity: 0; }
+  76%  { opacity: 1; }
+
+  100% { opacity: 1; }
+}
+
+/* === 残影乱跳 === */
+@keyframes circuit-jump {
+  0%   { opacity: 0; }
+  12%  { opacity: .6; }
+  13%  { opacity: 0; }
+
+  37%  { opacity: .8; }
+  38%  { opacity: 0; }
+
+  61%  { opacity: .5; }
+  62%  { opacity: 0; }
+
+  85%  { opacity: .7; }
+  86%  { opacity: 0; }
+
+  100% { opacity: 0; }
+}
+
+    .system-welcome {
+  position: relative;
+  text-align: center;
+  overflow: hidden;
+}
+
+.system-line {
+  font-size: 1.2rem;
+  letter-spacing: .12em;
+  opacity: .85;
+  margin: .6em 0;
+}
+
+/* 背景巨大文字 */
+.survive-bg {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(6rem, 20vw, 14rem);
+  font-weight: 900;
+  letter-spacing: .3em;
+  color: rgba(120, 0, 0, 0.25); /* 黑红 */
+  pointer-events: none;
+  user-select: none;
+
+  /* 缓慢浮现 */
+  animation: surviveFade 3.5s ease forwards;
+}
+
+@keyframes surviveFade {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+
+
     /* 提灯效果（如需在文案中包裹 .lantern） */
     .lantern{
       display: inline-block; position: relative;
       animation: flicker 2.2s infinite, buoy 3.2s ease-in-out infinite, sway 4.5s ease-in-out infinite;
     }
+    /* 重开按钮（固定于安全区内） */
+    .nav-buttons{
+  position: fixed;
+  left: calc(env(safe-area-inset-left) + 8px);
+  top: calc(env(safe-area-inset-top) + 8px);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
 
     /* 返回按钮（固定于安全区内） */
     .back-btn{
-      position: fixed; left: calc(env(safe-area-inset-left) + 8px); top: calc(env(safe-area-inset-top) + 8px);
       background: #131313; border: 1px solid #333; border-radius: .6rem;
       color: #bfe0ff; padding: .45rem .7rem; font-weight: 700; cursor: pointer;
       box-shadow: 0 2px 10px rgba(0,0,0,.35); z-index: 10;
@@ -119,7 +300,16 @@
 </head>
 <body>
   <!-- 键盘无障碍：按钮可回退上一段 -->
-  <button id="backBtn" class="back-btn" aria-label="返回上一步" disabled type="button">← 返回</button>
+<div class="nav-buttons">
+  <button id="backBtn" class="back-btn" aria-label="返回上一步" disabled type="button">
+    ← 返回
+  </button>
+  <button id="restartBtn" class="back-btn" type="button">
+    ⟳ 重新开始
+  </button>
+</div>
+
+
   <!-- 音乐播放 -->
   <button id="musicBtn" class="music-btn" type="button">🎵 音乐</button>
 
@@ -140,12 +330,51 @@
        - 文案可能包含 HTML（如 <em>/<b>），渲染时会直接注入。
        - 如需防止外部注入，请确保 PASSAGES 由可信源构建。
        ========================================================= */
+
+    const COUNTDOWN_KEY = "fuben_start_time";
+    const TOTAL_TIME = 24 * 60 * 60 * 1000; // 24h
+
+function getRemainingTime() {
+  let start = localStorage.getItem(COUNTDOWN_KEY);
+
+  if (!start) {
+    start = Date.now();
+    localStorage.setItem(COUNTDOWN_KEY, start);
+  } else {
+    start = parseInt(start, 10);
+  }
+
+  const now = Date.now();
+  const remaining = Math.max(0, TOTAL_TIME - (now - start));
+  return remaining;
+}
+
+function startCountdownAnchor() {
+  if (!localStorage.getItem(COUNTDOWN_KEY)) {
+    localStorage.setItem(COUNTDOWN_KEY, Date.now());
+  }
+}
+
     const PASSAGES = {
+      death_intro: {
+        enter: "t-enter",
+        html: `
+    <div class="death-screen">
+      <div class="death-title">你死了</div>
+      <div class="death-sub">死于一场意外。</div>
+      <div class="blood"></div>
+      <a href="#" class="death-enter" data-next="intro0">一切归为虚无</a>
+    </div>
+  `
+},
+
       /* ===== 引子与三选（学校 / 单位 / 家） ===== */
       intro0: {
         lines: [
-          { text: "如果你突然来到一个熟悉又陌生的地方。" },
-          { text: "你似曾相识的楼就这样，四周没有一棵树，没有一朵花，甚至没有一根草。没有人，也没有狗；没有苍蝇和蟑螂。空气里没有生命的气息。" },
+          { text: "没有颜色，没有黑暗，没有光。" },
+          { text: "唯有一片过于纯粹的白，刺目却又空洞，像盲者眼底的世界，仿佛整个世界都被抹去了痕迹。" },
+          { text: "渐渐地，那片纯白开始淡下去，你似曾相识的楼就这样出现。" },
+          { text: "四周没有一棵树，没有一朵花，甚至没有一根草。没有人，也没有狗；没有苍蝇和蟑螂。空气里没有生命的气息。" },
           { text: "写着未知字符牌匾的，你最熟悉的——" }
         ],
         options: [
@@ -159,8 +388,10 @@
       /* ===== 学校线：安静到失真 ===== */
       route_school: {
         lines: [
-          { text: "校园里格外安静——没有电子设备的嗡鸣，没有风声，没有老师同学的喧哗。只有你的脚步、你的心跳、你的呼吸。" },
-          { text: "走廊灯影迟滞，好像光也被归档入某种失效的时间库。黑板上留着粉尘，可没有任何一粒尘埃在飘。" }
+          { text: "校园里格外安静——" },
+          { text: "一缕骇人的违和感攫住了你。" },
+          { text: "没有电子设备的嗡鸣，没有风声，没有老师同学的喧哗。只有你的脚步、你的心跳、你的呼吸。" },
+          { text: "走廊灯影迟滞，黑板上留着粉尘，可没有那文字仿佛AI生成的乱码。" }
         ],
         options: [{ text: "……", next: "converge_void" }]
       },
@@ -168,11 +399,11 @@
       /* ===== 单位线：办公区的尸蜡质感 ===== */
       route_work: {
         lines: [
+          { text: "公司里格外安静——" },
           { text: "一缕骇人的违和感攫住了你。" },
-          { text: "没有人声。" },
-          { text: "没有犬吠。" },
-          { text: "没有雀鸣。" },
-          { text: "甚至连风声、树叶的颤动都消失得一干二净，呼吸似乎也被迟滞了。整个空间死一般的寂静，仿佛所有活物都被剥夺殆尽。" }
+          { text: "没有电脑的嗡鸣，没有苛责的上司和嘴贱的同事，但这并不像一场普通的假期" },
+          { text: "一切整齐得近乎森冷，每一样物品都在原位，井然得令人不安，简直是一场拙劣的复刻。" },
+
         ],
         options: [{ text: "……", next: "converge_void" }]
       },
@@ -180,6 +411,7 @@
       /* ===== 家线：熟悉房间里的陌生寒意 ===== */
       route_home: {
         lines: [
+          { text: "家里格外安静——" },
           { text: "一缕骇人的违和感攫住了你。" },
           { text: "没有人声。" },
           { text: "没有犬吠。" },
@@ -224,7 +456,7 @@
 
       sleep_here: {
         lines: [
-          { text: "你倚着门廊缓慢坐下。寂静像是枯井，你把自己往里投。" }
+          { text: "你倚着门廊缓慢坐下。想着只要睡着了，或许也就梦醒了。" }
         ],
         options: [
           { text: "闭眼强迫入睡（睡着，结局 a）", next: "ending_a" },
@@ -247,7 +479,7 @@
       enter_house: {
         lines: [
           { text: "依旧是记忆中的格局，可周围的世界却像一具空壳，静得反常，像是时间与生命全被掐断，留下荒芜的躯壳。" },
-          { text: "墙上悬挂的相框反着冷白的光，你看见自己的影，只是影子没有跟你同步——它慢半拍。" }
+          { text: "墙上悬挂的相框反着冷白的光，你似乎看见了自己的影子，只是影子慢了你半拍。" }
         ],
         options: [
           { text: "搜寻异常物品", next: "inspect_anomaly" },
@@ -258,10 +490,11 @@
       /* ===== 异常物品 → 协议激活 ===== */
       inspect_anomaly: {
         lines: [
+          { text: "你心底隐隐生出一种预感——若这片死寂的世界真有某个被刻意藏起的缺口，那它一定出现在那里。" },
           { text: "你在抽屉的最底层摸到一册薄薄的册子。封皮没有字，指尖一触，它像活了一样呼吸。" },
           { html: "【协议激活：<b>卡牌游戏-核心框架</b>】" },
           { html: "【卡池载入：副本「以史为鉴」】" },
-          { html: "【副本时限：24:00:00（倒计时启动）】" }
+          { html: "【副本时限：24:00:00】" }
         ],
         options: [
           { text: "接受",   next: "accept_protocol" },
@@ -295,15 +528,15 @@
           { html: "【请确认：是否进入副本「以史为鉴」。】" }
         ],
         options: [
-          { text: "你是谁？主神、系统，还是某个躲在帷幕后操纵的叙事者？", next: "refuse_d2" },
+          { text: "你是谁？所谓的主神、系统，还是某个躲在帷幕后操纵的叙事者？", next: "refuse_d2" },
           { text: "……算了，接受。", next: "accept_protocol" }
         ]
       },
 
       refuse_d2: {
         lines: [
-          { html: "【无关字段。】" },
-          { html: "【当前仅处理：进入/拒绝。】" }
+          { html: "【监测到 无关字段。】" },
+          { html: "【身份已绑定，拒绝无效。】" }
         ],
         options: [
           { text: "我知道你听得见。回答我，你想要什么？", next: "refuse_d3" },
@@ -324,21 +557,24 @@
 
       refuse_d4: {
         lines: [
-          { html: "【若不执行，二十四小时内你的生物体征将彻底熄灭；若执行，存活概率提升至 42%。】" }
+          { html: "【拯救。】" },
+          { html: "【若执行，存活概率提升至 42%；若不执行，二十四小时内你的生物体征将彻底熄灭】" }
         ],
         options: [
-          { text: "拯救？你所谓的盛世不过是空壳。因果谁裁？", next: "refuse_d5" },
+          { text: "真是廉价的筹码啊。拯救？你所谓的‘存活’，不过是一场空壳幻象罢了。", next: "refuse_d5" },
           { text: "……算了，接受。", next: "accept_protocol" }
         ]
       },
 
       refuse_d5: {
         lines: [
-          { html: "【因由你述，果由我裁。混乱不可容留。】" },
+          { html: "【世界毁灭已成既定。】" },
+          { html: "【秩序崩坏，生命线断裂。】" },
+          { html: "【人类将被收录在因果断裂的另一端。】" },
           { html: "墙面与空气的纹理轻微扭曲，像被水晕开的墨。" }
         ],
         options: [
-          { text: "你缺什么，需要从我这儿榨取？", next: "refuse_bind" },
+          { text: "你缺什么，或者说，将要从我这儿榨取？", next: "refuse_bind" },
           { text: "……算了，接受。", next: "accept_protocol" }
         ]
       },
@@ -346,8 +582,11 @@
       /* 触发强制绑定 → 只能讲故事（结局 c） */
       refuse_bind: {
         lines: [
-          { html: "【拒绝无效。身份已绑定。】" },
-          { html: "【副本已开启，剩余时间：23:47:11】" },
+          { html: "【因由你述，果由我裁。混乱不可容留。】" },
+          {
+            html: "<span class='system-glitch' data-text='【拒绝无效。身份已绑定。】'>【拒绝无效。身份已绑定。】</span>"
+          },
+          { html: "【副本已开启，剩余时间：<span id='countdown'></span>】" },
           { html: "帷幕后冷白的殿阶一层层展开。" }
         ],
         options: [
@@ -408,13 +647,12 @@
       /* ===== 侮辱主神 → 仍被绑定 → 先走副本故事 → 再选 g/h ===== */
       insult_god: {
         lines: [
-          { text: "你仰头向空无的穹顶痛骂，把所有粗鄙的词都翻出来。" },
           { html: "【语言收录完毕。情绪参数：高。】" },
           { html: "【副本绑定完成。】" },
           { html: "【副本提示：讲述以重建因果。】" }
         ],
         options: [
-          { text: "……", next: "insult_story_intro" }
+          { text: "你仰头向空无的穹顶痛骂，继续把所有粗鄙的词都翻出来。", next: "insult_story_intro" }
         ]
       },
 
@@ -455,7 +693,7 @@
           { text: "当你再次睁眼，胸腔空得像被人搬走过，地面上却留下一圈浅白的盐痕。时间仍在流逝，但世界好像默许了你再活一次。" }
         ],
         options: [
-          { text: "获得职业：回声抄写员", next: "job_scribe" }
+          { text: "获得职业：拾影者", next: "job_scribe" }
         ]
       },
 
@@ -465,7 +703,7 @@
           { text: "世界的亮度微微上升，你获得了一线继续书写的许可。" }
         ],
         options: [
-          { text: "获得职业：御词讲官", next: "job_orator" }
+          { text: "获得职业：卡牌师Ⅰ", next: "job_orator" }
         ]
       },
 
@@ -475,7 +713,7 @@
           { text: "你站在幕布之前，幕布另一边的人影与自己重叠，却再无法确认那是不是你。" }
         ],
         options: [
-          { text: "获得职业：契约行走者", next: "job_binder" }
+          { text: "获得职业：卡牌设计师ⅠⅠⅠ", next: "job_binder" }
         ]
       },
 
@@ -485,7 +723,7 @@
           { text: "雾散之后，镜面里出现了一个温暖的光点。那是属于你的时间，被你争取了下来。" }
         ],
         options: [
-          { text: "获得职业：镜面守望者", next: "job_mirror" }
+          { text: "获得职业：引渡人", next: "job_mirror" }
         ]
       },
 
@@ -495,7 +733,7 @@
           { text: "世界变得更加光滑，仿佛再没有棱角，但你也发现自己更难抓住它了。" }
         ],
         options: [
-          { text: "获得职业：绣词造梦师", next: "job_fabulist" }
+          { text: "获得职业：说书人", next: "job_fabulist" }
         ]
       },
 
@@ -505,7 +743,7 @@
           { text: "拳头停在半空，像一枚孤零零的标点符号，而你的句子继续替你完成了反击与妥协。" }
         ],
         options: [
-          { text: "获得职业：辩斗家", next: "job_brawler" }
+          { text: "获得职业：清道夫", next: "job_brawler" }
         ]
       },
 
@@ -515,7 +753,7 @@
           { text: "你透过冰冷的玻璃看见自己，冻得通红，却依旧清醒地呼吸。" }
         ],
         options: [
-          { text: "获得职业：冷柜档案师", next: "job_archivist" }
+          { text: "获得职业：窥梦师", next: "job_archivist" }
         ]
       },
 
@@ -525,11 +763,118 @@
           { text: "词条下方还有一行小字：『可复用』。" }
         ],
         options: [
-          { text: "获得职业：荒诞注释者", next: "job_glossator" }
+          { text: "获得职业：火种", next: "job_glossator" }
         ]
-      }
+      },
 
-      /* === 提示：你在结局后的“职业”段落（job_*）可继续补充 === */
+      /* === 在结局后的“职业”段落（job_*）可继续补充 === */
+job_scribe: {
+  lines: [
+    { text: "【职业｜拾影者】" },
+    { text: "浪退了，沙滩就会说话。" },
+    { text: "当世界否认它们存在时，你仍记得。" },
+    { text: "职业技能：" },
+    { text: " 1.【遗痕寻迹】：快速锁定视野范围 15m 内被遗落之物（实物），并自动评估其价值。" },
+    { text: " 2.【渚印昭昭】：在直径1 m内洒下清水，使隐藏的足迹、拖痕、碰触痕迹等短时间内显形。（可成长）" },
+  ],
+  options: [{ text: "继续", next: "system_welcome" }]
+},
+
+job_orator: {
+  lines: [
+    { text: "【职业｜卡牌师Ⅰ】" },
+    { text: "恭喜，你已成为“卡牌师”序列成员。当前职责为：每周构建并维护场景设定，需确保完成度 ≥ 60%方视为合格。作为对你专业素养的认可，你可在系统商城享受9折优惠。" },
+    { text: "你的语言本身就是一种供奉。" },
+    { text: "职业技能：" },
+    { text: " 1.当场景设定合格时，获得该场景的出入权利（需配合“空白钥匙”进入，依据完成度决定可滞留时间）；空白钥匙*1，可进入已获得出入权限的场景。[请注意，场景中的一切不会重置，且副本规则照常生效，请谨慎进入]。" },
+    { text: " 2.薪资 = 800 熵币 × 完成度 / 景；月满勤 = 200 熵币。" },
+  ],
+  options: [{ text: "继续", next: "system_welcome" }]
+},
+
+job_binder: {
+  lines: [
+    { text: "【职业｜卡牌设计师ⅠⅠⅠ】" },
+    { text: "恭喜，你已成为“卡牌师”序列成员，当前职能为：每日设计并完善5张道具卡，需确保完成度 ≥ 85%方视为合格。作为对你专业素养的认可，你可在系统商城享受9折优惠。" },
+    { text: "你被准许拥有你需要的一切。" },
+    { text: "职业技能：" },
+    { text: " 1.当道具卡设计合格时，您将获得该道具的使用权（存放于“空卡”中，依据完成度决定道具效果）；空白卡牌*5，可以存放拥有使用权的道具。[请注意，道具使用后该道具卡消失，请谨慎使用]：" },
+    { text: " 2.薪资 = 20 熵币 × 完成度 / 张；月满勤 = 1000 熵币" },
+  ],
+  options: [{ text: "继续", next: "system_welcome" }]
+},
+
+job_mirror: {
+  lines: [
+    { text: "【职业｜引渡人】" },
+    { text: "立于界河之畔，既非此岸，亦非彼岸。掌舵者、渡桥者，送行归乡，亦领新人至未知的疆土。往来间，风沙携影，水波载声，皆为引渡的回响。" },
+    { text: "你在现实与映像之间驻足。" },
+    { text: "职业技能：" },
+    { text: " 1.环绕石*3，可以抵挡三次致命攻击。" },
+    { text:" 2.在地图探索度 ≥ 80% 时，可自动获得该副本的世界故事概要。" }
+  ],
+  options: [{ text: "继续", next: "system_welcome" }]
+},
+
+job_fabulist: {
+  lines: [
+    { text: "【职业｜说书人】" },
+    { text: "自娱自乐的编织者，自由放任的故事家，在尘封的纸页与余烬的风中播撒虚构的种子。" },
+    { text: "你用语言编织柔软的幻象。" },
+    { text: "职业技能：" },
+    { text: " 1.【戏中行者】：编造一段符合副本设定的NPC身世，短暂化作NPC的行迹与气息，时效5min，每个副本仅限一次。" },
+    { text: " 2.【谎言之绊】：每个副本可选择自己的立场和阵营，使该派系好感度 +20%，敌对派系好感度 -10%，副本结束失效。" },
+  ],
+  options: [{ text: "继续", next: "system_welcome" }]
+},
+
+job_brawler: {
+  lines: [
+    { text: "【职业｜清道夫】" },
+    { text: "余烬中寻光，混沌中穿行，坍塌孕育重生，毁灭缔造新生。游走于破碎与完整之间，见证秩序的崩解与重构。" },
+    { text: "世界往往先被你说服，再被你击倒。" },
+    { text: "职业技能：" },
+    { text: " 1.【裂界驭途】：将副本内任意物品安全传递至两地之间，无视一切阻碍，冷却时间 12 h（可成长）。" },
+    { text: " 2.【万物蚀解】：分解目标物品，提取资源，用于修复、制作或再利用，冷却时间6h（可成长）。" },
+      ],
+  options: [{ text: "继续", next: "system_welcome" }]
+},
+
+job_archivist: {
+  lines: [
+    { text: "【职业｜窥梦师】" },
+    { text: "见不可名状之物，存不可述之影。" },
+    { text: "你负责窥见那些不该被记住的东西，包括羞耻、失败，以及仍在呼吸的过去。" },
+    { text: "职业技能：" },
+    { text: " 1.【梦绘流光】：将1m*1m范围的景象全数绘于“映写帛”上，帛面将剥离虚妄，显露其中真实与隐秘。。冷却时间：6 h。" },
+    { text: " 2.【真理显影】：以心中设问为锚，对“映写帛”进行显影，图面将呈现与问题相关的热度分布。冷却时间12h。" },
+  ],
+  options: [{ text: "继续", next: "system_welcome" }]
+},
+
+job_glossator: {
+  lines: [
+    { text: "【职业｜火种】" },
+    { text: "载弄纵生，腐朽中诞育，晨曦中堕落。" },
+    { text: "当荒唐被解释，它就成了规则的一部分。" },
+    { text: "职业技能：" },
+    { text: " 1.【献祭】：损失自身10%的生命值，恢复他人8%的生命值，单副本使用次数3次。" },
+    { text: " 2.【血燃之力】：损失自身生命值，换取80%数值的力量加点，冷却时间12h。" },
+  ],
+  options: [{ text: "继续", next: "system_welcome" }]
+},
+
+system_welcome: {
+  enter: "t-enter",
+  html: `
+    <div class="system-welcome">
+  <p class="system-line">欢迎进入。</p>
+  <p class="system-line">卡牌游戏。</p>
+  </div>
+<div class="survive-bg">活下去</div>
+
+  `},
+
     };
 
     /* =========================================================
@@ -652,12 +997,50 @@
 
       // 入场动画结束后：
       box.addEventListener("animationend", () => {
-        box.classList.remove("muted");
-        STATE.busy = false;
-        fitStage();            // 内容变化后计算一次缩放
-        focusFirstOption(box); // 辅助无障碍：将焦点移到第一项/容器
-      }, { once: true });
+  box.classList.remove("muted");
+  STATE.busy = false;
+  fitStage();
+  focusFirstOption(box);
+
+  // 只有在协议激活后，才锚定倒计时起点
+  if (STATE.currentId === "inspect_anomaly") {
+    startCountdownAnchor();
+  }
+
+  // 如果页面上有 countdown 元素，就开始刷新显示
+  startCountdown();
+}, { once: true });
+
     }
+
+    /* =========================
+   真实 24h 倒计时 · 显示更新
+   ========================= */
+
+function formatTime(ms) {
+  const total = Math.floor(ms / 1000);
+  const h = String(Math.floor(total / 3600)).padStart(2, "0");
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+  return `${h}:${m}:${s}`;
+}
+
+function startCountdown() {
+  const el = document.getElementById("countdown");
+  if (!el) return;
+
+  function tick() {
+    const remain = getRemainingTime();
+    el.textContent = formatTime(remain);
+
+    if (remain > 0) {
+      setTimeout(tick, 1000);
+    }
+  }
+
+  tick();
+}
+
 
     function renderOptions(opts = []) {
       if (!opts.length) return "";
@@ -707,10 +1090,31 @@
       }
     }, { passive: false });
 
-    function updateBackBtn(){
-      backBtn.disabled = STATE.history.length === 0;
-      backBtn.setAttribute('aria-disabled', String(backBtn.disabled));
-    }
+function updateBackBtn(){
+  // system_welcome 是终止态，不允许返回
+  const disabled = STATE.history.length === 0 || STATE.currentId === "system_welcome";
+  backBtn.disabled = disabled;
+  backBtn.setAttribute('aria-disabled', String(disabled));
+}
+
+
+    /* =========================================================
+     新增回到主页按钮
+       ========================================================= */
+    const restartBtn = document.getElementById('restartBtn');
+
+function restartGame() {
+  STATE.history.length = 0;
+  STATE.currentId = null;
+  localStorage.removeItem(COUNTDOWN_KEY);
+  app.innerHTML = "";
+  updateBackBtn();
+  show("intro0", "t-enter");
+}
+
+restartBtn.addEventListener('click', restartGame);
+
+
 
     /* =========================================================
        视口与缩放（零滚动关键）
@@ -754,7 +1158,8 @@
        启动：写入 --vh、进入起始段落、首次适配缩放
        ========================================================= */
     updateVHVar();
-    show("intro0");   // 从 intro0 开始
+    show("death_intro"); // 先进入死亡序章
+
     fitStage();
 
     // 补充：页面可见性变更时微调一次（移动端从后台回前台可能有地址栏变化）
